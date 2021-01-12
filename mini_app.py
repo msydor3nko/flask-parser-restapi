@@ -1,11 +1,11 @@
 from api import app, db
-from api.models import Products, Reviews
+from api.models import Product, Review
 
 
 @app.shell_context_processor
 def make_shell_context():
     return {
         'db': db,
-        'Products': Products,
-        'Reviews': Reviews,
+        'Product': Product,
+        'Review': Review,
     }

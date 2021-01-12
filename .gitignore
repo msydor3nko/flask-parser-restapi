@@ -8,5 +8,12 @@ venv/
 # Should be ignored, but needed to show for test case
 # .env
 
+# db
+memory.db
+migrations
+
 # Timely files
 test_client.py
+
+# IDE
+.idea/
