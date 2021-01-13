@@ -1,15 +1,17 @@
-from flask import request
+from flask import request, jsonify
 
 from api import app, cache
 from api.models import Product, Review
 
 
 @app.route('/api/products/<int:id>', methods=["GET"])
-@cache.cached()
+@cache.cached(timeout=10)
 def get_product(id):
-    return Product.get_data_by_id(product_id=id)
+    product = Product()
+    return product.get_product(id=id), 200
 
 
 @app.route('/api/reviews/<int:id>', methods=["PUT"])
-def send_review(id):
-    return Product.update_review(review=request.json, product_id=id)
+def update_product_review(id):
+    Review.update_review(review=request.json, product_id=id)
+    return {"message": f"Updated review for product with id = {id}"}, 201

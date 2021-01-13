@@ -6,68 +6,85 @@ class Product(db.Model):
     asin = db.Column(db.String(50), unique=True)
     title = db.Column(db.String(500), unique=False)
     # one Product by 'id' -> many Reviews
-    review = db.relationship('Review', backref='product', lazy='dynamic')
+    reviews = db.relationship('Review', backref='product')
 
     def __repr__(self):
-        return '<Product {id} - {asin}>'.format(id=self.id, asin=self.asin)
+        return '<Product: {id} - {asin}>'.format(id=self.id, asin=self.asin)
 
-    @staticmethod
-    def get_data_by_id(product_id: int):
-        # (?!) get by 'id' and join with 'Review' by 'asin'
-        item_data = Product.query.filter_by(id=product_id).first()
-        return Product._data_to_dict(item_data)
+    def get_product(self, id: int) -> dict:
+        product = self.find_product_by_id(id)
+        if not product:
+            return {'message': f'Product with id={id} not found!'}
+        return self.prepare_json_response(product)
 
-    @classmethod
-    def _data_to_dict(cls, item_data):
+    def find_product_by_id(self, id: int):
+        return self.query.filter_by(id=id).first()
+
+    def prepare_json_response(self, product) -> dict:
         return {
-            "id": item_data.id,
-            "product_data": {
-                "asin": item_data.asin,
-                "title": item_data.title,
-                "review": "Product review...",
+            "id": product.id,
+            "product_info": {
+                "asin": product.asin,
+                "title": product.title,
+                "reviews": self.listing_reviews(product),
             },
-            "page_number": 1,
         }
 
-    def save_to_db(self, data: dict):
-        self.asin = data.get("Asin")
-        self.title = data.get("Title")
+    def listing_reviews(self, product: list) -> list:
+        reviews_list = []
+        reviews = product.reviews
+        if reviews:
+            for item, review in enumerate(reviews, start=1):
+                reviews_list.append(
+                    {
+                        "item": item,
+                        "title": review.title,
+                        "review": review.review,
+                    }
+                )
+        return reviews_list
 
+    def save_product(self, product: dict):
+        self.asin = product.get("Asin")
+        self.title = product.get("Title")
+        self._save_to_db()
+
+    def _save_to_db(self):
         try:
             db.session.add(self)
             db.session.commit()
-            print(f"Saved: {self.asin}")
+            print(f"Saved: {self}")
         except Exception as exc:
-            print(f"Rollback: {exc}")
             db.session.rollback()
+            print(f"Rollback: {exc}")
         finally:
-            print("Session closed")
             db.session.close()
 
 
 class Review(db.Model):
     id = db.Column(db.Integer, unique=True, primary_key=True)
-    asin = db.Column(db.String(50), unique=True)
+    asin = db.Column(db.String(50), unique=False)
     title = db.Column(db.String(500), unique=False)
     review = db.Column(db.Text, unique=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
 
-    # (?!) asin should be
-    product_id = db.Column(db.String, db.ForeignKey('product.id'))
+    def __repr__(self):
+        return '<Review: {id} - {asin}>'.format(id=self.id, asin=self.asin)
 
     @staticmethod
     def update_review(review: dict, product_id: int):
-        product = Product.query.filter_by(id=id).first()
-        if product:
-            product.review = review.get("review")
+        product = Review.query.filter_by(product_id=product_id).first()
+        new_review = review.get("review")
+        if product and review:
+            product.review = new_review
         try:
             db.session.add(product)
             db.session.commit()
-            print(f"Saved: {product.asin}")
+            print(f"Saved: {product}")
         except Exception as exc:
             db.session.rollback()
             print(f"Rollback: {exc}")
         finally:
-            print("Session closed")
             db.session.close()
 
     def save_to_db(self, data: dict):
@@ -76,13 +93,12 @@ class Review(db.Model):
         self.review = data.get("Review")
 
         product = Product.query.filter_by(asin=self.asin).first()
-        print("product", product)
         self.product_id = product.id
 
         try:
             db.session.add(self)
             db.session.commit()
-            print(f"Saved: {self.asin}")
+            print(f"Saved: {self}")
         except Exception as exc:
             db.session.rollback()
             print(f"Rollback: {exc}")

@@ -13,4 +13,4 @@ class Config(object):
         'sqlite:///' + os.path.join(basedir, 'memory.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CACHE_TYPE = 'simple'
-    CACHE_DEFAULT_TIMEOUT = 10
+    CACHE_DEFAULT_TIMEOUT = 50
