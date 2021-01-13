@@ -14,3 +14,4 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CACHE_TYPE = 'simple'
     CACHE_DEFAULT_TIMEOUT = 50
+    JSON_AS_ASCII = False

@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request
 
 from api import app, cache
 from api.models import Product, Review
@@ -6,12 +6,14 @@ from api.models import Product, Review
 
 @app.route('/api/products/<int:id>', methods=["GET"])
 @cache.cached(timeout=10)
-def get_product(id):
+def get_product_info(id):
     product = Product()
-    return product.get_product(id=id), 200
+    product_info = product.get_product(id=id)
+    return product_info, 200
 
 
 @app.route('/api/reviews/<int:id>', methods=["PUT"])
-def update_product_review(id):
-    Review.update_review(review=request.json, product_id=id)
-    return {"message": f"Updated review for product with id = {id}"}, 201
+def add_new_product_review(id):
+    review = Review()
+    review_status = review.add_new_review(new_review=request.json, product_id=id)
+    return review_status, 201
