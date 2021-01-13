@@ -12,3 +12,5 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_CONNECTION') or \
         'sqlite:///' + os.path.join(basedir, 'memory.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CACHE_TYPE = 'simple'
+    CACHE_DEFAULT_TIMEOUT = 10

@@ -1,11 +1,11 @@
 from flask import request
 
-from api import app
+from api import app, cache
 from api.models import Product, Review
 
 
 @app.route('/api/products/<int:id>', methods=["GET"])
-# data caching needed
+@cache.cached()
 def get_product(id):
     return Product.get_data_by_id(product_id=id)
 
