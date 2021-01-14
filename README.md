@@ -31,6 +31,10 @@ The simple mini app based on Python Flask.
 
 `source venv/bin/activate`
 
+* Upgrade pip'
+
+`pip install pip -U`
+
 * Install all required libraries from 'requirements.txt'
 
 `pip install -r requirements.txt`
