@@ -1,4 +1,7 @@
+from sqlalchemy.exc import SQLAlchemyError
+
 from api import db
+from api.exceptions import ProductNotFoundError, ReviewMissedDataError
 
 
 class Product(db.Model):
@@ -10,10 +13,10 @@ class Product(db.Model):
     def __repr__(self):
         return '<Product: {id} - {asin}>'.format(id=self.id, asin=self.asin)
 
-    def get_product(self, id: int) -> dict:
+    def get_product_from_db(self, id: int):
         product = self.find_product_by_id(id)
         if not product:
-            return {'message': f'Product with "{id}" not found!'}
+            return {"message": f"Product with this ID is not found!"}, 400
         return self.prepare_json_response(product)
 
     def find_product_by_id(self, id: int):
@@ -25,11 +28,11 @@ class Product(db.Model):
             "product_info": {
                 "asin": product.asin,
                 "title": product.title,
-                "reviews": self.listing_reviews(product),
+                "reviews": self._listing_product_reviews(product),
             },
         }
 
-    def listing_reviews(self, product: list) -> list:
+    def _listing_product_reviews(self, product: list) -> list:
         reviews_list = []
         reviews = product.reviews
         if reviews:
@@ -53,9 +56,9 @@ class Product(db.Model):
             db.session.add(self)
             db.session.commit()
             print(f"Saved: {self}")
-        except Exception as exc:
+        except SQLAlchemyError as exc:
             db.session.rollback()
-            print(f"Rollback: {exc}")
+            print(f"Rollback message: {exc}")
         finally:
             db.session.close()
 
@@ -70,45 +73,54 @@ class Review(db.Model):
     def __repr__(self):
         return '<Review: {id} - {asin}>'.format(id=self.id, asin=self.asin)
 
-    def add_new_review(self, new_review: dict, product_id: int):
-        target_product = Review.query.filter_by(product_id=product_id).first()
-        if not target_product:
-            return {"message": f"Product with this 'id' is not found!"}
+    def save_to_db(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+            print(f"Saved: {self}")
+        except SQLAlchemyError as exc:
+            db.session.rollback()
+            print(f"Rollback message: {exc}")
+        finally:
+            db.session.close()
 
+    def save_parsed_review_to_db(self, review_data):
+        self.title = review_data.get("Title")
+        self.review = review_data.get("Review")
+        self.asin = review_data.get("Asin")
+        if self.asin:
+            product = Product.query.filter_by(asin=self.asin).first()
+            self.product_id = product.id
+        self.save_to_db()
+
+    def add_new_product_review(self, new_review: dict, product_id: int):
+        try:
+            reviewed_product = self.find_review_by_product_id(product_id)
+        except ProductNotFoundError:
+            return {"message": f"Product with this ID is not found!"}, 400
+
+        try:
+            self.prepare_new_product_review_to_saving(new_review, reviewed_product)
+        except ReviewMissedDataError:
+            return {"message": 'Some content in new review is missed!'}, 400
+
+        self.save_to_db()
+        return {"message": 'The new review added!'}, 201
+
+    def find_review_by_product_id(self, product_id: int):
+        reviewed_product = Review.query.filter_by(product_id=product_id).first()
+        if not reviewed_product:
+            raise ProductNotFoundError(reviewed_product)
+        return reviewed_product
+
+    def prepare_new_product_review_to_saving(self, new_review, reviewed_product):
         review_title = new_review.get("title")
         review_content = new_review.get("review")
-        if not review_title or not review_content:
-            return {"message": 'Title or content in new review is missed!'}
 
-        self.asin = target_product.asin
+        if not review_title or not review_content:
+            raise ReviewMissedDataError(new_review)
+
         self.title = review_title
         self.review = review_content
-        self.product_id = target_product.product_id
-
-        try:
-            db.session.add(self)
-            db.session.commit()
-            print(f"Saved: {self}")
-        except Exception as exc:
-            db.session.rollback()
-            print(f"Rollback: {exc}")
-        finally:
-            db.session.close()
-
-    def save_to_db(self, data: dict):
-        self.asin = data.get("Asin")
-        self.title = data.get("Title")
-        self.review = data.get("Review")
-
-        product = Product.query.filter_by(asin=self.asin).first()
-        self.product_id = product.id
-
-        try:
-            db.session.add(self)
-            db.session.commit()
-            print(f"Saved: {self}")
-        except Exception as exc:
-            db.session.rollback()
-            print(f"Rollback: {exc}")
-        finally:
-            db.session.close()
+        self.asin = reviewed_product.asin
+        self.product_id = reviewed_product.product_id

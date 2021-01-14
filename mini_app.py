@@ -9,3 +9,7 @@ def make_shell_context():
         'Product': Product,
         'Review': Review,
     }
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
