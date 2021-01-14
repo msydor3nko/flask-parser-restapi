@@ -12,8 +12,5 @@ venv/
 memory.db
 migrations
 
-# Timely files
-test_client.py
-
 # IDE
 .idea/

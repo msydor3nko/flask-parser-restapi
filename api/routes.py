@@ -1,4 +1,4 @@
-from flask import request
+from flask import request, jsonify
 
 from api import app, cache
 from api.models import Product, Review
@@ -9,7 +9,7 @@ from api.models import Product, Review
 def get_product_info(id):
     product = Product()
     product_info = product.get_product_from_db(id=id)
-    return product_info, 200
+    return product_info
 
 
 @app.route('/api/reviews/<int:id>', methods=["PUT"])

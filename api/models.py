@@ -1,6 +1,8 @@
+from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
 
 from api import db
+from api.response_messages import ResponseMessage
 from api.exceptions import ProductNotFoundError, ReviewMissedDataError
 
 
@@ -14,13 +16,11 @@ class Product(db.Model):
         return '<Product: {id} - {asin}>'.format(id=self.id, asin=self.asin)
 
     def get_product_from_db(self, id: int):
-        product = self.find_product_by_id(id)
+        product = self.query.filter_by(id=id).first()
         if not product:
-            return {"message": f"Product with this ID is not found!"}, 400
-        return self.prepare_json_response(product)
-
-    def find_product_by_id(self, id: int):
-        return self.query.filter_by(id=id).first()
+            return jsonify(ResponseMessage.PRODUCT_NOT_FOUND_400.value), 400
+        response = self.prepare_json_response(product)
+        return jsonify(response), 200
 
     def prepare_json_response(self, product) -> dict:
         return {
@@ -46,12 +46,7 @@ class Product(db.Model):
                 )
         return reviews_list
 
-    def save_product(self, product: dict):
-        self.asin = product.get("Asin")
-        self.title = product.get("Title")
-        self._save_to_db()
-
-    def _save_to_db(self):
+    def save_to_db(self):
         try:
             db.session.add(self)
             db.session.commit()
@@ -61,6 +56,11 @@ class Product(db.Model):
             print(f"Rollback message: {exc}")
         finally:
             db.session.close()
+
+    def save_parsed_product_to_db(self, product: dict):
+        self.asin = product.get("Asin")
+        self.title = product.get("Title")
+        self.save_to_db()
 
 
 class Review(db.Model):
@@ -72,6 +72,34 @@ class Review(db.Model):
 
     def __repr__(self):
         return '<Review: {id} - {asin}>'.format(id=self.id, asin=self.asin)
+
+    def add_new_product_review(self, new_review: dict, product_id: int):
+        try:
+            reviewed_product = self.find_review_by_product_id(product_id)
+        except ProductNotFoundError:
+            return jsonify(ResponseMessage.PRODUCT_NOT_FOUND_400.value), 400
+        try:
+            self.prepare_new_product_review_to_saving(new_review, reviewed_product)
+        except ReviewMissedDataError:
+            return jsonify(ResponseMessage.INCORRECT_REVIEW_FORMAT_400.value), 400
+        self.save_to_db()
+        return jsonify(ResponseMessage.NEW_REVIEW_CREATED_201.value), 201
+
+    def find_review_by_product_id(self, product_id: int):
+        reviewed_product = Review.query.filter_by(product_id=product_id).first()
+        if not reviewed_product:
+            raise ProductNotFoundError(reviewed_product)
+        return reviewed_product
+
+    def prepare_new_product_review_to_saving(self, new_review, reviewed_product):
+        review_title = new_review.get("title")
+        review_content = new_review.get("review")
+        if not review_title or not review_content:
+            raise ReviewMissedDataError(new_review)
+        self.title = review_title
+        self.review = review_content
+        self.asin = reviewed_product.asin
+        self.product_id = reviewed_product.product_id
 
     def save_to_db(self):
         try:
@@ -92,35 +120,3 @@ class Review(db.Model):
             product = Product.query.filter_by(asin=self.asin).first()
             self.product_id = product.id
         self.save_to_db()
-
-    def add_new_product_review(self, new_review: dict, product_id: int):
-        try:
-            reviewed_product = self.find_review_by_product_id(product_id)
-        except ProductNotFoundError:
-            return {"message": f"Product with this ID is not found!"}, 400
-
-        try:
-            self.prepare_new_product_review_to_saving(new_review, reviewed_product)
-        except ReviewMissedDataError:
-            return {"message": 'Some content in new review is missed!'}, 400
-
-        self.save_to_db()
-        return {"message": 'The new review added!'}, 201
-
-    def find_review_by_product_id(self, product_id: int):
-        reviewed_product = Review.query.filter_by(product_id=product_id).first()
-        if not reviewed_product:
-            raise ProductNotFoundError(reviewed_product)
-        return reviewed_product
-
-    def prepare_new_product_review_to_saving(self, new_review, reviewed_product):
-        review_title = new_review.get("title")
-        review_content = new_review.get("review")
-
-        if not review_title or not review_content:
-            raise ReviewMissedDataError(new_review)
-
-        self.title = review_title
-        self.review = review_content
-        self.asin = reviewed_product.asin
-        self.product_id = reviewed_product.product_id

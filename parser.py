@@ -31,7 +31,7 @@ def parse_and_save_products(filename: str):
     with open(filename) as data:
         for item_data in csv.DictReader(data):
             product = Product()
-            product.save_product(item_data)
+            product.save_parsed_product_to_db(item_data)
 
 
 def parse_and_save_reviews(filename: str):
